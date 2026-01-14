@@ -41,7 +41,6 @@ func main() {
 	http.HandleFunc("/orders", corsMiddleware(handleOrders))
 	http.HandleFunc("/", handleHome)
 
-<<<<<<< HEAD
 	// Use PORT from environment (Railway) or default to 8080
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -49,17 +48,8 @@ func main() {
 	}
 
 	fmt.Printf("Server running on :%s\n", port)
-=======
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080" // local development fallback
-	}
-
-	log.Println("Server running on port", port)
->>>>>>> f2ff564266e435e89eecb3c79a3e8f2132149010
 	log.Fatal(http.ListenAndServe(":"+port, nil))
 }
-
 
 func handleHome(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
