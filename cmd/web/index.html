@@ -279,7 +279,7 @@
               />
             </div>
             <div class="form-group">
-              <label>Amount</label>
+              <label>Amount (Ksh)</label>
               <input
                 type="number"
                 id="orderAmount"
@@ -387,7 +387,7 @@
                         <td>${o.id || o["orders.id"]}</td>
                         <td>${o.description || o["orders.description"]}</td> 
                         <td>${o.name || o["users.name"]}</td>
-                        <td>$${o.amount || o["orders.amount"]}</td>
+                        <td>Ksh. ${o.amount || o["orders.amount"]}</td>
                     </tr>`;
             // Note: My SQL select in handleOrders JOIN doesn't select description.
             // SQL: SELECT orders.id, orders.amount, users.name FROM ...
