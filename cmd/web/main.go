@@ -8,9 +8,28 @@ import (
 	"mini-rdbms/db/engine"
 	"mini-rdbms/db/schema"
 	"net/http"
+	"os"
 )
 
 var db *engine.Engine
+
+// CORS middleware to allow GitHub Pages to call this API
+func corsMiddleware(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Allow requests from GitHub Pages
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+		// Handle preflight requests
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		next(w, r)
+	}
+}
 
 func main() {
 	db = engine.NewEngine()
@@ -18,12 +37,18 @@ func main() {
 	// Setup Schema if not exists
 	setupSchema()
 
-	http.HandleFunc("/users", handleUsers)
-	http.HandleFunc("/orders", handleOrders)
+	http.HandleFunc("/users", corsMiddleware(handleUsers))
+	http.HandleFunc("/orders", corsMiddleware(handleOrders))
 	http.HandleFunc("/", handleHome)
 
-	fmt.Println("Server running on :8080")
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	// Use PORT from environment (Railway) or default to 8080
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	fmt.Printf("Server running on :%s\n", port)
+	log.Fatal(http.ListenAndServe(":"+port, nil))
 }
 
 func handleHome(w http.ResponseWriter, r *http.Request) {
