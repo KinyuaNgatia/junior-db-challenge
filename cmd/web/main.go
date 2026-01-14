@@ -92,8 +92,8 @@ func seedData() {
 	// Sample Users
 	users := []string{
 		"INSERT INTO users VALUES (1, 'Brian Kinyua', 'kinyua@example.com')",
-		"INSERT INTO users VALUES (2, 'Jane Doe', 'jane@pesapal.com')",
-		"INSERT INTO users VALUES (3, 'Admin User', 'admin@mini-rdbms.io')",
+		"INSERT INTO users VALUES (2, 'Jane Kamau', 'jane.k@pesapal.co.ke')",
+		"INSERT INTO users VALUES (3, 'David Omari', 'omari@nairobi.go.ke')",
 	}
 
 	for _, sql := range users {
@@ -102,10 +102,10 @@ func seedData() {
 
 	// Sample Orders
 	orders := []string{
-		"INSERT INTO orders VALUES (5001, 1, 2500, 'Mechanical Keyboard')",
-		"INSERT INTO orders VALUES (5002, 1, 1200, 'Type-C Hub')",
-		"INSERT INTO orders VALUES (5003, 2, 45000, 'MacBook Pro')",
-		"INSERT INTO orders VALUES (5004, 3, 150, 'SQL for Dummies')",
+		"INSERT INTO orders VALUES (5001, 1, 250, 'Large Samosa Platters')",
+		"INSERT INTO orders VALUES (5002, 2, 45, 'Chapati Madondo')",
+		"INSERT INTO orders VALUES (5003, 2, 120, 'Grilled Sukuma & Ugali')",
+		"INSERT INTO orders VALUES (5004, 3, 3500, 'PesaPal API Credits')",
 	}
 
 	for _, sql := range orders {
