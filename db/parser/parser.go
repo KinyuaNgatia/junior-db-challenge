@@ -70,6 +70,18 @@ func (p *Parser) parseCreate() (*CreateTableStmt, error) {
 	if !p.expectPeek(TokenTable) {
 		return nil, fmt.Errorf(p.errors[len(p.errors)-1])
 	}
+
+	// Optional IF NOT EXISTS
+	if p.peekTokenIs(TokenIf) {
+		p.nextToken() // IF
+		if !p.expectPeek(TokenNot) {
+			return nil, fmt.Errorf("expected NOT after IF")
+		}
+		if !p.expectPeek(TokenExists) {
+			return nil, fmt.Errorf("expected EXISTS after NOT")
+		}
+	}
+
 	if !p.expectPeek(TokenIdent) {
 		return nil, fmt.Errorf(p.errors[len(p.errors)-1])
 	}

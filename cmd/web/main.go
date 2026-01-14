@@ -34,8 +34,9 @@ func corsMiddleware(next http.HandlerFunc) http.HandlerFunc {
 func main() {
 	db = engine.NewEngine()
 
-	// Setup Schema if not exists
+	// Setup Schema and Seed Data
 	setupSchema()
+	seedData()
 
 	http.HandleFunc("/users", corsMiddleware(handleUsers))
 	http.HandleFunc("/orders", corsMiddleware(handleOrders))
@@ -60,9 +61,9 @@ func handleHome(w http.ResponseWriter, r *http.Request) {
 }
 
 func setupSchema() {
-	// Attempt Create Tables. Ignore error if exists.
-	db.Execute(context.Background(), "CREATE TABLE users (id INT PRIMARY KEY, name TEXT UNIQUE, email TEXT)")
-	db.Execute(context.Background(), "CREATE TABLE orders (id INT PRIMARY KEY, user_id INT, amount INT, description TEXT)")
+	// Attempt Create Tables. Ignore error if exists (handled by Engine).
+	db.Execute(context.Background(), "CREATE TABLE IF NOT EXISTS users (id INT PRIMARY KEY, name TEXT UNIQUE, email TEXT)")
+	db.Execute(context.Background(), "CREATE TABLE IF NOT EXISTS orders (id INT PRIMARY KEY, user_id INT, amount INT, description TEXT)")
 
 	// Programmatically add FK constraint: orders.user_id -> users.id
 	// Since we don't parse FK syntax yet, we add it directly to the table definition
@@ -75,6 +76,43 @@ func setupSchema() {
 			},
 		}
 	}
+}
+
+func seedData() {
+	ctx := context.Background()
+
+	// Only seed if users table is empty
+	res, _ := db.Execute(ctx, "SELECT * FROM users")
+	if res != nil && len(res.Rows) > 0 {
+		return
+	}
+
+	log.Println("Seeding sample data...")
+
+	// Sample Users
+	users := []string{
+		"INSERT INTO users VALUES (1, 'Brian Kinyua', 'kinyua@example.com')",
+		"INSERT INTO users VALUES (2, 'Jane Doe', 'jane@pesapal.com')",
+		"INSERT INTO users VALUES (3, 'Admin User', 'admin@mini-rdbms.io')",
+	}
+
+	for _, sql := range users {
+		db.Execute(ctx, sql)
+	}
+
+	// Sample Orders
+	orders := []string{
+		"INSERT INTO orders VALUES (5001, 1, 2500, 'Mechanical Keyboard')",
+		"INSERT INTO orders VALUES (5002, 1, 1200, 'Type-C Hub')",
+		"INSERT INTO orders VALUES (5003, 2, 45000, 'MacBook Pro')",
+		"INSERT INTO orders VALUES (5004, 3, 150, 'SQL for Dummies')",
+	}
+
+	for _, sql := range orders {
+		db.Execute(ctx, sql)
+	}
+
+	log.Println("Seeding complete.")
 }
 
 func handleUsers(w http.ResponseWriter, r *http.Request) {

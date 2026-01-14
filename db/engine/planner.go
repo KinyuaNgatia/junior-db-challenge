@@ -263,8 +263,12 @@ func (n *JoinNode) Schema() schema.TableDef {
 // --- Planning Logic ---
 
 func (p *Planner) planSelect(stmt *parser.SelectStmt) (PlanNode, error) {
+	// We need a way to load tables in planner too, but executor currently handles the map.
+	// For web/dashboard select, we assume they are already in the map or loaded by setup.
 	t, ok := p.Tables[stmt.TableName]
 	if !ok {
+		// Since Planner doesn't have storage access directly, we expect it to be passed in.
+		// However, in a full impl, we'd have a catalog.
 		return nil, fmt.Errorf("table not found: %s", stmt.TableName)
 	}
 

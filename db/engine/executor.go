@@ -98,16 +98,23 @@ func (e *Engine) execCreate(stmt *parser.CreateTableStmt) (*ResultSet, error) {
 	return &ResultSet{Message: fmt.Sprintf("Table %s created", stmt.TableName)}, nil
 }
 
+func (e *Engine) getTable(name string) (*storage.Table, error) {
+	if t, ok := e.Tables[name]; ok {
+		return t, nil
+	}
+	// Try load from disk
+	t, err := storage.LoadTable(name)
+	if err != nil {
+		return nil, err
+	}
+	e.Tables[name] = t
+	return t, nil
+}
+
 func (e *Engine) execInsert(stmt *parser.InsertStmt) (*ResultSet, error) {
-	table, ok := e.Tables[stmt.TableName]
-	if !ok {
-		// Try load?
-		var err error
-		table, err = storage.LoadTable(stmt.TableName)
-		if err != nil {
-			return nil, fmt.Errorf("table not found: %s", stmt.TableName)
-		}
-		e.Tables[stmt.TableName] = table
+	table, err := e.getTable(stmt.TableName)
+	if err != nil {
+		return nil, fmt.Errorf("table not found: %s", stmt.TableName)
 	}
 
 	// Validate Foreign Key Constraints
@@ -127,9 +134,9 @@ func (e *Engine) execInsert(stmt *parser.InsertStmt) (*ResultSet, error) {
 }
 
 func (e *Engine) execUpdate(stmt *parser.UpdateStmt) (*ResultSet, error) {
-	table, ok := e.Tables[stmt.TableName]
-	if !ok {
-		return nil, fmt.Errorf("table not found")
+	table, err := e.getTable(stmt.TableName)
+	if err != nil {
+		return nil, fmt.Errorf("table not found: %s", stmt.TableName)
 	}
 
 	// Find rows to update.
@@ -218,9 +225,9 @@ func (e *Engine) applyUpdate(t *storage.Table, row storage.Row, setMap map[strin
 }
 
 func (e *Engine) execDelete(stmt *parser.DeleteStmt) (*ResultSet, error) {
-	table, ok := e.Tables[stmt.TableName]
-	if !ok {
-		return nil, fmt.Errorf("table not found")
+	table, err := e.getTable(stmt.TableName)
+	if err != nil {
+		return nil, fmt.Errorf("table not found: %s", stmt.TableName)
 	}
 
 	count := 0

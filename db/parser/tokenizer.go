@@ -46,6 +46,9 @@ const (
 	TokenRParen   // )
 	TokenEqual    // =
 	TokenLimit
+	TokenIf
+	TokenNot
+	TokenExists
 )
 
 type Token struct {
@@ -194,6 +197,9 @@ var keywords = map[string]TokenType{
 	"TEXT":    TokenTextType,
 	"AND":     TokenAnd,
 	"LIMIT":   TokenLimit,
+	"IF":      TokenIf,
+	"NOT":     TokenNot,
+	"EXISTS":  TokenExists,
 }
 
 func LookupIdent(ident string) TokenType {
