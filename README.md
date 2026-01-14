@@ -1,140 +1,85 @@
-# Minimal RDBMS
+# Mini RDBMS: Lightweight SQL Engine in Go
 
-A minimal, embedded Relational Database Management System (RDBMS) written in Go.
-Designed for the Pesapal Junior Dev Challenge ’26.
+## Project Objective
 
-## Overview
+This project is a bottom-up implementation of a relational database management system designed to demonstrate core architectural principles of data storage, indexing, and query execution. It exists to provide a clean, readable codebase for understanding how SQL strings are parsed into execution plans and how ACID-lite properties can be achieved in a simplified embedded environment.
 
-This project implements a functional RDBMS from scratch, featuring:
+## Architecture Overview
 
-- **SQL-like Interface**: Support for CREATE, INSERT, SELECT, UPDATE, DELETE, and JOIN.
-- **Interactive REPL**: A command-line shell for interacting with the database.
-- **Persistent Storage**: JSON-based file persistence for tables.
-- **Indexing**: Hash-based indexing for Primary Keys and Unique constraints.
-- **Clean Architecture**: Separation of concerns into Parser, Engine, and Storage layers.
+The system follows a classic decoupled architecture, separating the front-end query interface from the back-end storage engine.
 
-## Architecture
-
-The system is organized into modular components:
-
-```
-cmd/
- ├── repl/       # Interactive Shell entry point
- └── web/        # Demo Web Application
-db/
- ├── parser/     # Lexer and Recursive Descent Parser (AST generation)
- ├── engine/     # Query Planner and Executor
- ├── storage/    # In-memory Table/Row structure and Disk I/O
- ├── types/      # SQL Data Types (INT, TEXT)
- └── index/      # Hash Index implementation
+```mermaid
+graph TD
+    A[Client: REPL / Web UI] -->|SQL String| B[Parser]
+    B -->|AST| C[Query Planner]
+    C -->|Execution Plan| D[Executor]
+    D -->|Row Operations| E[Storage Engine]
+    E <-->|JSON Serialization| F[Disk: /data/*.json]
+    E <-->|O(1) Lookups| G[Hash Indices]
 ```
 
-### Key Components
+### 1. Engine & Data Flow
 
-1.  **Storage Engine**:
+- **Parser**: A recursive descent parser that tokenizes SQL and builds an Abstract Syntax Tree (AST).
+- **Planner**: Analyzes the AST to determine the optimal access path. It distinguishes between **Index Scans** (for Primary Key/Unique lookups) and **Full Table Scans**.
+- **Executor**: A push-based execution model that processes rows according to the plan. It handles relational algebra operations like `Filter`, `Project`, and `Nested Loop Join`.
 
-    - Tables are stored in memory as a map of `PrimaryKey -> Row`.
-    - Persistence is achieved by serializing the table/schema to JSON files in the `data/` directory.
-    - Each table has a dedicated file (e.g., `users.json`).
+### 2. UI Layer
 
-2.  **Indexing**:
+- **REPL**: A CLI tool for direct low-level interaction.
+- **API/Web**: A Go net/http server providing RESTful access to the engine, serving a modern dashboard for CRUD visualization.
 
-    - A Hash Index is maintained for Primary Keys and Unique columns.
-    - This allows O(1) lookups for `WHERE id = ?`.
+## Supported Database Operations
 
-3.  **Query Execution**:
-    - **Parser**: Converts SQL strings into an Abstract Syntax Tree (AST).
-    - **Planner**: select the best strategy (Index Scan vs Full Table Scan) and handles JOIN logic.
-    - **Executor**: Iterates over the plan and produces a Result Set.
+| Category | Supported Syntax / Operations                                                            |
+| :------- | :--------------------------------------------------------------------------------------- |
+| **DDL**  | `CREATE TABLE` (INT, TEXT types), `PRIMARY KEY`, `UNIQUE` constraints.                   |
+| **DML**  | `INSERT INTO`, `UPDATE ... SET ... WHERE`, `DELETE FROM ... WHERE`.                      |
+| **DQL**  | `SELECT *`, `SELECT col1, col2`, `WHERE` (with `=`, `AND`, `OR`), `INNER JOIN`, `LIMIT`. |
 
-## Supported SQL Syntax
+## Data Integrity Guarantees
 
-### Data Definition
+- **Entity Integrity**: Enforced via Primary Key constraints during insertion and update.
+- **Domain Integrity**: Type checking for `INT` and `TEXT` fields during the execution phase.
+- **Uniqueness**: Secondary Hash Indices prevent duplicate entries in columns marked `UNIQUE`.
+- **Durability (Atomic Writes)**: The storage engine utilizes an **Atomic Rename** strategy. Data is written to a temporary file and renamed to the target `.json` file only upon successful write to ensure table files are never left in a corrupted state.
 
-```sql
-CREATE TABLE users (
-  id INT PRIMARY KEY,
-  name TEXT UNIQUE,
-  email TEXT
-);
-```
+## Limitations and Intentional Trade-offs
 
-### Data Manipulation
+- **JSON Persistence**: Chosen for transparency and ease of inspection at the cost of disk I/O and CPU overhead during serialization. Not suitable for O(N) scaling.
+- **Single-Threaded Model**: The current engine uses coarse-grained locking. It is functional for concurrent web access but does not support high-concurrency write throughput.
+- **In-Memory Primary State**: Data is fully loaded into memory. While this allows for extremely fast reads, the total dataset size is limited by available RAM.
+- **Nested Loop Join**: Joins are implemented via nested loops (O(N\*M)). While efficient for small datasets, hash-joins or sort-merge joins would be required for production-scale loads.
 
-```sql
--- Insert
-INSERT INTO users VALUES (1, 'Alice', 'alice@example.com');
-
--- Select
-SELECT * FROM users;
-SELECT name, email FROM users WHERE id = 1;
-
--- Join (Inner Join)
-SELECT users.name, orders.amount
-FROM users
-JOIN orders ON users.id = orders.user_id;
-
--- Update
-UPDATE users SET name = 'Bob' WHERE id = 1;
-
--- Delete
-DELETE FROM users WHERE id = 1;
-```
-
-## Getting Started
+## How to Run & Test Locally
 
 ### Prerequisites
 
-- Go 1.23 or later
+- Go 1.23+
 
-### Running the REPL
+### 1. Launch the Engine (Web Dashboard)
 
-The REPL provides a persistent session to interact with the database.
-
-```bash
-# From the project root
-go run cmd/repl/main.go
-```
-
-**Example Session:**
-
-```
-db> CREATE TABLE items (id INT PRIMARY KEY, name TEXT);
-Table items created
-db> INSERT INTO items VALUES (10, 'Book');
-Insert successful
-db> SELECT * FROM items;
-id  name
-10  Book
-```
-
-### Running the Web Application
-
-The web app demonstrates a real-world use case (Users & Orders domain).
-
-```bash
+```powershell
 go run cmd/web/main.go
 ```
 
-The server starts on `http://localhost:8080`.
+The dashboard will be available at `http://localhost:8080`.
 
-**Endpoints:**
+### 2. Interactive REPL
 
-- `POST /users` (Create user)
-- `GET /users` (List users)
-- `POST /orders` (Create order)
-- `GET /orders` (List orders, supports `?details=true` for JOIN)
+```powershell
+go run cmd/repl/main.go
+```
 
-## Design Decisions & Trade-offs
+### 3. Automated Verification
 
-- **JSON Storage**: Chosen for human readability and simple debugging. **Trade-off**: Performance overhead on Save/Load compared to binary format; not suitable for massive datasets.
-- **Hash Indexing**: Simple O(1) lookup. **Trade-off**: Does not support Range queries (e.g., `> 100`) or efficient ordering.
-- **No Concurrency Control**: Single-threaded logical model. **Trade-off**: Race conditions possible if multiple processes access the same files.
-- **In-Memory + Flush**: Tables are loaded fully into memory and saved on every implementation. **Trade-off**: Very slow write performance for large tables, but ensures durability for this scale.
+```powershell
+# Run the integration test script
+go run TEST_SCRIPT.go
+# Or use the makefile if available
+make test
+```
 
-## Future Improvements
+### Storage Access
 
-- Implement B-Tree Indexing for Range queries.
-- Add Transaction support (Commit/Rollback).
-- Improve Parser to support complex expressions (AND/OR, Math).
-- Binary storage format for efficiency.
+The physical table data is stored in the `./data` directory relative to the executable. Each table is represented by a readable `.json` file containing both the schema definition and its records.

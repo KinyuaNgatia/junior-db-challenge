@@ -162,7 +162,7 @@ func handleOrders(w http.ResponseWriter, r *http.Request) {
 		var sql string
 		if details == "true" {
 			// JOIN
-			sql = "SELECT orders.id, orders.amount, users.name FROM orders JOIN users ON orders.user_id = users.id"
+			sql = "SELECT orders.id, orders.amount, orders.description, users.name FROM orders JOIN users ON orders.user_id = users.id"
 		} else {
 			sql = "SELECT * FROM orders"
 		}

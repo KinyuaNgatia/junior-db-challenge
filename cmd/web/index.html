@@ -385,7 +385,7 @@
             // Our generic JSON codec maps column names.
             const row = `<tr>
                         <td>${o.id || o["orders.id"]}</td>
-                        <td>Unknown (Desc missing in Join)</td> 
+                        <td>${o.description || o["orders.description"]}</td> 
                         <td>${o.name || o["users.name"]}</td>
                         <td>$${o.amount || o["orders.amount"]}</td>
                     </tr>`;
