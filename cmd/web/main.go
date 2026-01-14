@@ -8,6 +8,7 @@ import (
 	"mini-rdbms/db/engine"
 	"mini-rdbms/db/schema"
 	"net/http"
+	"os"
 )
 
 var db *engine.Engine
@@ -22,9 +23,15 @@ func main() {
 	http.HandleFunc("/orders", handleOrders)
 	http.HandleFunc("/", handleHome)
 
-	fmt.Println("Server running on :8080")
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080" // local development fallback
+	}
+
+	log.Println("Server running on port", port)
+	log.Fatal(http.ListenAndServe(":"+port, nil))
 }
+
 
 func handleHome(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
