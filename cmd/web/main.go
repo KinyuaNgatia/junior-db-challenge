@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"mini-rdbms/db/engine"
+	"mini-rdbms/db/schema"
 	"net/http"
 )
 
@@ -37,6 +38,18 @@ func setupSchema() {
 	// Attempt Create Tables. Ignore error if exists.
 	db.Execute(context.Background(), "CREATE TABLE users (id INT PRIMARY KEY, name TEXT UNIQUE, email TEXT)")
 	db.Execute(context.Background(), "CREATE TABLE orders (id INT PRIMARY KEY, user_id INT, amount INT, description TEXT)")
+
+	// Programmatically add FK constraint: orders.user_id -> users.id
+	// Since we don't parse FK syntax yet, we add it directly to the table definition
+	if ordersTable, ok := db.Tables["orders"]; ok {
+		ordersTable.Def.ForeignKeys = []schema.ForeignKeyDef{
+			{
+				Column:    "user_id",
+				RefTable:  "users",
+				RefColumn: "id",
+			},
+		}
+	}
 }
 
 func handleUsers(w http.ResponseWriter, r *http.Request) {

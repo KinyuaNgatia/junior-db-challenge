@@ -110,6 +110,11 @@ func (e *Engine) execInsert(stmt *parser.InsertStmt) (*ResultSet, error) {
 		e.Tables[stmt.TableName] = table
 	}
 
+	// Validate Foreign Key Constraints
+	if err := e.validateForeignKeys(table, stmt.Values); err != nil {
+		return nil, err
+	}
+
 	if err := table.Insert(stmt.Values); err != nil {
 		return nil, err
 	}
@@ -312,4 +317,61 @@ func (e *Engine) projectResult(rows []storage.Row, schema schema.TableDef, field
 	}
 
 	return &ResultSet{Columns: resultNames, Rows: newRows}, nil
+}
+
+// validateForeignKeys checks all FK constraints for the given values.
+// Returns error if any referenced value doesn't exist in the parent table.
+func (e *Engine) validateForeignKeys(table *storage.Table, values []types.Value) error {
+	for _, fk := range table.Def.ForeignKeys {
+		// Get the column index for the FK column
+		colIdx := table.Def.GetColumnIndex(fk.Column)
+		if colIdx == -1 {
+			return fmt.Errorf("foreign key column not found: %s", fk.Column)
+		}
+
+		// Get the value being inserted
+		fkValue := values[colIdx]
+
+		// Get the referenced table
+		refTable, ok := e.Tables[fk.RefTable]
+		if !ok {
+			// Try to load it
+			var err error
+			refTable, err = storage.LoadTable(fk.RefTable)
+			if err != nil {
+				return fmt.Errorf("referenced table not found: %s", fk.RefTable)
+			}
+			e.Tables[fk.RefTable] = refTable
+		}
+
+		// Check if the referenced value exists
+		// Use index lookup if the referenced column is indexed
+		refColDef, ok := refTable.Def.GetColumn(fk.RefColumn)
+		if !ok {
+			return fmt.Errorf("referenced column not found: %s.%s", fk.RefTable, fk.RefColumn)
+		}
+
+		var exists bool
+		if refColDef.IsPrimary || refColDef.IsUnique {
+			// Use index lookup
+			_, exists = refTable.IndexLookup(fk.RefColumn, fkValue)
+		} else {
+			// Full scan (less efficient but works for non-indexed columns)
+			refTable.Scan(func(pk interface{}, row storage.Row) bool {
+				refColIdx := refTable.Def.GetColumnIndex(fk.RefColumn)
+				if refColIdx != -1 && row.Values[refColIdx].Val == fkValue.Val {
+					exists = true
+					return false // Stop scanning
+				}
+				return true
+			})
+		}
+
+		if !exists {
+			return fmt.Errorf("foreign key constraint violation: %s.%s references non-existent value %v in %s.%s",
+				table.Def.Name, fk.Column, fkValue.Val, fk.RefTable, fk.RefColumn)
+		}
+	}
+
+	return nil
 }

@@ -10,10 +10,19 @@ type ColumnDef struct {
 	IsUnique  bool
 }
 
+// ForeignKeyDef defines a foreign key constraint.
+// Example: orders.user_id REFERENCES users(id)
+type ForeignKeyDef struct {
+	Column    string // Column in this table (e.g., "user_id")
+	RefTable  string // Referenced table name (e.g., "users")
+	RefColumn string // Referenced column (e.g., "id")
+}
+
 // TableDef defines the schema of a table.
 type TableDef struct {
-	Name    string
-	Columns []ColumnDef
+	Name        string
+	Columns     []ColumnDef
+	ForeignKeys []ForeignKeyDef // FK constraints for this table
 }
 
 // GetColumn finds a column definition by name.
@@ -44,4 +53,14 @@ func (t *TableDef) GetColumnIndex(name string) int {
 		}
 	}
 	return -1
+}
+
+// GetForeignKey returns the FK constraint for a column, if it exists.
+func (t *TableDef) GetForeignKey(column string) (ForeignKeyDef, bool) {
+	for _, fk := range t.ForeignKeys {
+		if fk.Column == column {
+			return fk, true
+		}
+	}
+	return ForeignKeyDef{}, false
 }

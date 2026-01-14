@@ -124,33 +124,85 @@ func (n *IndexScanNode) Execute(ctx context.Context) ([]storage.Row, error) {
 }
 func (n *IndexScanNode) Schema() schema.TableDef { return n.Table.Def }
 
-// JoinNode represents a nested loop join.
+// JoinNode implements INNER JOIN using the Nested Loop Join algorithm.
+//
+// RELATIONAL ALGEBRA SEMANTICS:
+// Given two relations R (Left) and S (Right), and a join condition θ (theta),
+// the INNER JOIN produces a new relation containing all combinations of rows
+// from R and S where θ evaluates to true.
+//
+// Formally: R ⋈_θ S = { r ∪ s | r ∈ R ∧ s ∈ S ∧ θ(r,s) }
+//
+// IMPLEMENTATION DETAILS:
+// - Algorithm: Nested Loop Join (simple but correct for small datasets)
+// - Join Type: INNER JOIN (only matching rows are included)
+// - Join Condition: Equality predicate on specified columns (LeftCol = RightCol)
+// - Non-matching rows: Excluded from result (INNER JOIN guarantee)
+//
+// EXAMPLE:
+// Given:
+//
+//	users:  {id: 1, name: "Alice"}, {id: 2, name: "Bob"}
+//	orders: {id: 100, user_id: 1, amount: 50}, {id: 101, user_id: 3, amount: 75}
+//
+// JOIN users ON orders.user_id = users.id produces:
+//
+//	{id: 1, name: "Alice", id: 100, user_id: 1, amount: 50}
+//
+// Note: Order 101 (user_id: 3) is EXCLUDED because user 3 doesn't exist.
+// This enforces referential integrity at query time.
 type JoinNode struct {
-	Left  PlanNode
-	Right PlanNode // Often a TableScan or IndexScan
-	// Condition: LeftCol = RightCol
+	Left  PlanNode // Left relation (e.g., orders table)
+	Right PlanNode // Right relation (e.g., users table)
+
+	// Join condition: LeftCol = RightCol
+	// Example: "user_id" = "id" for orders.user_id = users.id
 	LeftCol  string
 	RightCol string
 }
 
+// Execute performs the INNER JOIN operation.
+//
+// ALGORITHM: Nested Loop Join
+//  1. Materialize left relation (all rows from Left table)
+//  2. Materialize right relation (all rows from Right table)
+//  3. For each row in Left:
+//     For each row in Right:
+//     If Left[LeftCol] == Right[RightCol]:
+//     Combine rows and add to result
+//
+// TIME COMPLEXITY: O(|R| * |S|) where |R| = left rows, |S| = right rows
+// SPACE COMPLEXITY: O(|R| + |S| + |Result|)
+//
+// DETERMINISM GUARANTEE:
+// Results are deterministic because:
+// - Input rows are sorted by primary key (via GetSnapshot)
+// - Iteration order is stable (slice iteration, not map)
+// - Join condition is deterministic (equality check)
 func (n *JoinNode) Execute(ctx context.Context) ([]storage.Row, error) {
+	// Step 1: Materialize left relation
 	leftRows, err := n.Left.Execute(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	// Optimized: If Right is IndexScanNode, we can iterate Left and lookup Right?
-	// For simplicity: Materialize Right side and Nested Loop.
-
+	// Step 2: Materialize right relation
+	// Note: For optimization, if Right is an IndexScanNode, we could
+	// iterate Left and perform index lookups instead of full materialization.
+	// Current implementation prioritizes simplicity and correctness.
 	rightRows, err := n.Right.Execute(ctx)
 	if err != nil {
 		return nil, err
 	}
 
+	// Prepare result accumulator
 	var results []storage.Row
+
+	// Get schemas to locate join columns
 	lSchema := n.Left.Schema()
 	rSchema := n.Right.Schema()
 
+	// Find column indices for join condition
 	lIdx := lSchema.GetColumnIndex(n.LeftCol)
 	rIdx := rSchema.GetColumnIndex(n.RightCol)
 
@@ -158,28 +210,52 @@ func (n *JoinNode) Execute(ctx context.Context) ([]storage.Row, error) {
 		return nil, fmt.Errorf("join columns not found: %s, %s", n.LeftCol, n.RightCol)
 	}
 
+	// Step 3: Nested loop join
+	// Outer loop: iterate through left relation
 	for _, lRow := range leftRows {
+		// Check for cancellation (allows query timeout/cancellation)
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
+
+		// Inner loop: iterate through right relation
 		for _, rRow := range rightRows {
-			// Equality Check
+			// Evaluate join condition: Left[LeftCol] == Right[RightCol]
+			// Uses type-safe comparison from types.Value
 			cmp, err := lRow.Values[lIdx].Compare(rRow.Values[rIdx])
+
+			// If comparison succeeds and values are equal (cmp == 0)
 			if err == nil && cmp == 0 {
-				// Combine Rows
-				combined := storage.Row{Values: append(lRow.Values, rRow.Values...)}
+				// INNER JOIN: Combine matching rows
+				// Result schema: [Left columns..., Right columns...]
+				combined := storage.Row{
+					Values: append(lRow.Values, rRow.Values...),
+				}
 				results = append(results, combined)
 			}
+			// If values don't match (cmp != 0), skip this combination
+			// This is the INNER JOIN semantics: only matching rows included
 		}
 	}
+
+	// Return all matching row combinations
+	// If no matches found, returns empty slice (not an error)
 	return results, nil
 }
 
+// Schema returns the combined schema of the joined tables.
+//
+// SCHEMA COMPOSITION:
+// Given Left schema: [col1, col2, ...] and Right schema: [colA, colB, ...]
+// Result schema: [col1, col2, ..., colA, colB, ...]
+//
+// Note: Column names are preserved from both tables. In case of name conflicts,
+// the projection layer should use qualified names (e.g., "users.id", "orders.id").
 func (n *JoinNode) Schema() schema.TableDef {
 	l := n.Left.Schema()
 	r := n.Right.Schema()
 	return schema.TableDef{
-		Name:    l.Name + "_" + r.Name, // Virtual name
+		Name:    l.Name + "_" + r.Name, // Virtual name for joined relation
 		Columns: append(l.Columns, r.Columns...),
 	}
 }

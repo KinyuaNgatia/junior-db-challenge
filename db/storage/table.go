@@ -207,13 +207,26 @@ func (t *Table) IndexLookup(colName string, val types.Value) (interface{}, bool)
 	return idx.Get(val)
 }
 
-// GetSnapshot returns all rows. Expensive but safe.
+// GetSnapshot returns all rows sorted by primary key for deterministic results.
 func (t *Table) GetSnapshot() []Row {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
-	var rows []Row
-	for _, r := range t.Rows {
-		rows = append(rows, r)
+
+	// Collect all primary keys
+	pks := make([]interface{}, 0, len(t.Rows))
+	for pk := range t.Rows {
+		pks = append(pks, pk)
+	}
+
+	// Sort primary keys for deterministic ordering
+	// We need to handle both INT and TEXT types
+	pkCol, _ := t.Def.GetPrimaryKey()
+	sortPrimaryKeys(pks, pkCol.Type)
+
+	// Build result in sorted order
+	rows := make([]Row, 0, len(pks))
+	for _, pk := range pks {
+		rows = append(rows, t.Rows[pk])
 	}
 	return rows
 }
