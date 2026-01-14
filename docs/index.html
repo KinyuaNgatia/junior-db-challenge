@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mini RDBMS Dashboard</title>
+    <style>
+      :root {
+        --bg-color: #0f172a;
+        --card-bg: #1e293b;
+        --text-primary: #f8fafc;
+        --text-secondary: #94a3b8;
+        --accent-color: #38bdf8;
+        --accent-hover: #0ea5e9;
+        --border-color: #334155;
+        --success-color: #4ade80;
+      }
+
+      body {
+        font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI",
+          Roboto, Helvetica, Arial, sans-serif;
+        background-color: var(--bg-color);
+        color: var(--text-primary);
+        margin: 0;
+        padding: 0;
+        line-height: 1.5;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 2rem;
+      }
+
+      header {
+        margin-bottom: 3rem;
+        text-align: center;
+      }
+
+      h1 {
+        font-size: 2.5rem;
+        font-weight: 800;
+        margin: 0;
+        background: linear-gradient(135deg, var(--accent-color), #818cf8);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+
+      .subtitle {
+        color: var(--text-secondary);
+        font-size: 1.1rem;
+        margin-top: 0.5rem;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 2rem;
+      }
+
+      @media (min-width: 768px) {
+        .grid {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+
+      .card {
+        background-color: var(--card-bg);
+        border-radius: 1rem;
+        padding: 1.5rem;
+        border: 1px solid var(--border-color);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
+          0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        transition: transform 0.2s ease;
+      }
+
+      .card:hover {
+        transform: translateY(-2px);
+        border-color: var(--accent-color);
+      }
+
+      h2 {
+        margin-top: 0;
+        font-size: 1.5rem;
+        border-bottom: 2px solid var(--border-color);
+        padding-bottom: 0.75rem;
+        margin-bottom: 1.5rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .form-group {
+        margin-bottom: 1rem;
+      }
+
+      label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-size: 0.875rem;
+        color: var(--text-secondary);
+      }
+
+      input {
+        width: 100%;
+        padding: 0.75rem;
+        background-color: var(--bg-color);
+        border: 1px solid var(--border-color);
+        border-radius: 0.5rem;
+        color: var(--text-primary);
+        font-size: 1rem;
+        box-sizing: border-box;
+        transition: border-color 0.2s;
+      }
+
+      input:focus {
+        outline: none;
+        border-color: var(--accent-color);
+      }
+
+      button {
+        width: 100%;
+        padding: 0.75rem;
+        background-color: var(--accent-color);
+        color: var(--bg-color);
+        border: none;
+        border-radius: 0.5rem;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background-color 0.2s;
+      }
+
+      button:hover {
+        background-color: var(--accent-hover);
+      }
+
+      .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 1rem;
+      }
+
+      .data-table th,
+      .data-table td {
+        text-align: left;
+        padding: 0.75rem;
+        border-bottom: 1px solid var(--border-color);
+        font-size: 0.9rem;
+      }
+
+      .data-table th {
+        color: var(--text-secondary);
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 0.75rem;
+      }
+
+      .data-table tr:last-child td {
+        border-bottom: none;
+      }
+
+      .status-msg {
+        margin-top: 1rem;
+        padding: 0.75rem;
+        border-radius: 0.5rem;
+        font-size: 0.875rem;
+        display: none;
+      }
+
+      .status-success {
+        background-color: rgba(74, 222, 128, 0.1);
+        color: var(--success-color);
+        border: 1px solid rgba(74, 222, 128, 0.2);
+        display: block;
+      }
+
+      .status-error {
+        background-color: rgba(248, 113, 113, 0.1);
+        color: #f87171;
+        border: 1px solid rgba(248, 113, 113, 0.2);
+        display: block;
+      }
+
+      .refresh-btn {
+        background: transparent;
+        color: var(--accent-color);
+        width: auto;
+        padding: 0.25rem 0.5rem;
+        font-size: 0.875rem;
+        border: 1px solid var(--border-color);
+      }
+
+      .refresh-btn:hover {
+        background: rgba(56, 189, 248, 0.1);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>Mini RDBMS</h1>
+        <div class="subtitle">
+          Go Powered • Custom Engine • InMemory • NoSQL-ish
+        </div>
+      </header>
+
+      <div class="grid">
+        <!-- Create User -->
+        <div class="card">
+          <h2>Create User</h2>
+          <form id="userForm">
+            <div class="form-group">
+              <label>ID</label>
+              <input type="number" id="userId" placeholder="101" required />
+            </div>
+            <div class="form-group">
+              <label>Name</label>
+              <input
+                type="text"
+                id="userName"
+                placeholder="John Doe"
+                required
+              />
+            </div>
+            <div class="form-group">
+              <label>Email</label>
+              <input
+                type="email"
+                id="userEmail"
+                placeholder="john@example.com"
+                required
+              />
+            </div>
+            <button type="submit">Add User</button>
+            <div id="userMsg" class="status-msg"></div>
+          </form>
+        </div>
+
+        <!-- User List -->
+        <div class="card">
+          <h2>
+            Users
+            <button class="refresh-btn" onclick="fetchUsers()">Refresh</button>
+          </h2>
+          <div style="overflow-x: auto">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Name</th>
+                  <th>Email</th>
+                </tr>
+              </thead>
+              <tbody id="usersTableBody">
+                <tr>
+                  <td colspan="3">Loading...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Create Order -->
+        <div class="card">
+          <h2>Create Order</h2>
+          <form id="orderForm">
+            <div class="form-group">
+              <label>Order ID</label>
+              <input type="number" id="orderId" placeholder="5001" required />
+            </div>
+            <div class="form-group">
+              <label>User ID</label>
+              <input
+                type="number"
+                id="orderUserId"
+                placeholder="101"
+                required
+              />
+            </div>
+            <div class="form-group">
+              <label>Amount</label>
+              <input
+                type="number"
+                id="orderAmount"
+                placeholder="299"
+                required
+              />
+            </div>
+            <div class="form-group">
+              <label>Description</label>
+              <input
+                type="text"
+                id="orderDesc"
+                placeholder="Mechanical Keyboard"
+                required
+              />
+            </div>
+            <button type="submit">Place Order</button>
+            <div id="orderMsg" class="status-msg"></div>
+          </form>
+        </div>
+
+        <!-- Order List -->
+        <div class="card">
+          <h2>
+            Orders (Joined)
+            <button class="refresh-btn" onclick="fetchOrders()">Refresh</button>
+          </h2>
+          <div style="overflow-x: auto">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Item</th>
+                  <th>User (Joined)</th>
+                  <th>Amount</th>
+                </tr>
+              </thead>
+              <tbody id="ordersTableBody">
+                <tr>
+                  <td colspan="4">Loading...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const API = "http://localhost:8080";
+
+      // Utils
+      const showMsg = (el, msg, isError = false) => {
+        el.textContent = msg;
+        el.className =
+          "status-msg " + (isError ? "status-error" : "status-success");
+        setTimeout(() => (el.style.display = "none"), 3000);
+      };
+
+      // Fetch Users
+      async function fetchUsers() {
+        try {
+          const res = await fetch(`${API}/users`);
+          const data = await res.json();
+          const tbody = document.getElementById("usersTableBody");
+          tbody.innerHTML = "";
+
+          if (!data || data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="3">No users found</td></tr>';
+            return;
+          }
+
+          data.forEach((u) => {
+            const row = `<tr>
+                        <td>${u.id}</td>
+                        <td>${u.name}</td>
+                        <td>${u.email}</td>
+                    </tr>`;
+            tbody.innerHTML += row;
+          });
+        } catch (err) {
+          console.error(err);
+          document.getElementById("usersTableBody").innerHTML =
+            '<tr><td colspan="3">Error loading users</td></tr>';
+        }
+      }
+
+      // Fetch Orders
+      async function fetchOrders() {
+        try {
+          const res = await fetch(`${API}/orders?details=true`);
+          const data = await res.json();
+          const tbody = document.getElementById("ordersTableBody");
+          tbody.innerHTML = "";
+
+          if (!data || data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4">No orders found</td></tr>';
+            return;
+          }
+
+          data.forEach((o) => {
+            // Check schema from join select: orders.id, orders.amount, users.name
+            // Our generic JSON codec maps column names.
+            const row = `<tr>
+                        <td>${o.id || o["orders.id"]}</td>
+                        <td>Unknown (Desc missing in Join)</td> 
+                        <td>${o.name || o["users.name"]}</td>
+                        <td>$${o.amount || o["orders.amount"]}</td>
+                    </tr>`;
+            // Note: My SQL select in handleOrders JOIN doesn't select description.
+            // SQL: SELECT orders.id, orders.amount, users.name FROM ...
+            tbody.innerHTML += row;
+          });
+        } catch (err) {
+          console.error(err);
+          document.getElementById("ordersTableBody").innerHTML =
+            '<tr><td colspan="4">Error loading orders</td></tr>';
+        }
+      }
+
+      // Handle User Submit
+      document
+        .getElementById("userForm")
+        .addEventListener("submit", async (e) => {
+          e.preventDefault();
+          const payload = {
+            id: parseInt(document.getElementById("userId").value),
+            name: document.getElementById("userName").value,
+            email: document.getElementById("userEmail").value,
+          };
+
+          try {
+            const res = await fetch(`${API}/users`, {
+              method: "POST",
+              body: JSON.stringify(payload),
+            });
+            const txt = await res.text();
+
+            if (res.ok) {
+              showMsg(document.getElementById("userMsg"), "User added!");
+              e.target.reset();
+              fetchUsers();
+            } else {
+              showMsg(document.getElementById("userMsg"), txt, true);
+            }
+          } catch (err) {
+            showMsg(document.getElementById("userMsg"), "Network Error", true);
+          }
+        });
+
+      // Handle Order Submit
+      document
+        .getElementById("orderForm")
+        .addEventListener("submit", async (e) => {
+          e.preventDefault();
+          const payload = {
+            id: parseInt(document.getElementById("orderId").value),
+            user_id: parseInt(document.getElementById("orderUserId").value),
+            amount: parseInt(document.getElementById("orderAmount").value),
+            description: document.getElementById("orderDesc").value,
+          };
+
+          try {
+            const res = await fetch(`${API}/orders`, {
+              method: "POST",
+              body: JSON.stringify(payload),
+            });
+            const txt = await res.text();
+
+            if (res.ok) {
+              showMsg(document.getElementById("orderMsg"), "Order placed!");
+              e.target.reset();
+              fetchOrders();
+            } else {
+              showMsg(document.getElementById("orderMsg"), txt, true);
+            }
+          } catch (err) {
+            showMsg(document.getElementById("orderMsg"), "Network Error", true);
+          }
+        });
+
+      // Init
+      fetchUsers();
+      fetchOrders();
+    </script>
+  </body>
+</html>
